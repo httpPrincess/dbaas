@@ -17,7 +17,7 @@ def main_page():
 def create_new():
   container = get_mysql_container()
   docker.start(container, publish_all_ports=True)
-  container['Status'] = 'Created'
+  container['Status'] = 'Creating'
   return json.dumps(container), 201
 
 @app.route('/<id>', methods=['GET'])
