@@ -7,4 +7,13 @@ Flask based application for creating instances of a database. Not very fancy jus
 
 Remeber to install dependencies:
 
-   pip install -r requirements.txt
+   `pip install -r requirements.txt`
+
+Start the application by calling:
+
+   `python app.py`
+   
+Check if it works:
+
+   `curl -X GET -v localhost:8081`
+   
