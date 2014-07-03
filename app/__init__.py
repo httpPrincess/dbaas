@@ -32,7 +32,7 @@ def get_container(id):
   ret['Id'] = container['ID']
   ret['State'] = container['State']
   if container['NetworkSettings']['Ports']:
-    ret['Connection'] = container['NetworkSettings']['Ports']['3306/tcp']
+    ret['Connection'] = container['NetworkSettings']['Ports']['3306/tcp'][0]
     #it should be something else
     ret['Connection']['HostIp'] = '0.0.0.0'
   
