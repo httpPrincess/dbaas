@@ -8,7 +8,6 @@ app = Flask(__name__)
 docker = Client(version='1.10')
 
 # TODO: we should collect the types of services that we provide in some kind of registry that the Flask app can collect
-
 images = {'joai': 'joai_bv:latest', 'mysql': 'mysql:latest', 'nginx': 'nginx:latest'}
 
 
@@ -27,9 +26,7 @@ def main_page():
 def get_services():
     return json.dumps(images.keys()), 200
 
-
-# don't know whether this is a good way, feel free to comment on this.
-@app.route('/factory/<service>', methods=['POST'])
+@app.route('/<service>', methods=['POST'])
 def create_new(service):
     if service in images.keys():
         container = get_container(service)
@@ -46,39 +43,6 @@ def create_new(service):
 
 @app.route('/<id>', methods=['GET'])
 def get_container(id):
-<<<<<<< HEAD
-  try:
-    container = docker.inspect_container({'Id':id})
-  except:
-    return 'Container not found', 404
-  
-  ret = dict()
-  #why this is ID and not Id?
-  ret['Id'] = container['ID']
-  ret['State'] = container['State']
-  if container['NetworkSettings']['Ports']:
-    ret['Connection'] = container['NetworkSettings']['Ports']['3306/tcp'][0]
-    #it should be something else
-    ret['Connection']['HostIp'] = '0.0.0.0'
-  
-  ret['Password'] = extract_pass(container)
-  return json.dumps(ret)
- 
-@app.route('/<id>', methods=['DELETE'])
-def delete_container(id):
-  try:
-    container = docker.inspect_container({'Id':id})
-  except:
-    return 'Container not found', 404
-  
-  docker.stop(container)
- 
-
-def get_mysql_container():  
-  password = generate_pass(10)
-  mysql_container = docker.create_container('mysql', environment=['MYSQL_ROOT_PASSWORD=%s' % password])
-  return mysql_container
-=======
     try:
         container = docker.inspect_container({'Id': id})
     except:
@@ -119,8 +83,6 @@ def get_container(service):
         return docker.create_container(images['nginx'])
     else:
         raise NotImplementedError
-
->>>>>>> ac7e9bcbbc99a123ff9990919ae76b588f547dc4
 
 def generate_pass(length):
     return ''.join(random.choice(string.ascii_uppercase + string.lowercase + string.digits) for i in range(length))
