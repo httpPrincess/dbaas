@@ -63,12 +63,14 @@ def get_container(service, id):
     return jsonify(instance=ret)
 
 
-@app.route('/service/<container_id>', methods=['DELETE'])
+@app.route('/<service>/<id>', methods=['DELETE'])
 def delete_container(service, id):
-    container = docker.inspect_container({'Id': id}) 
+    container = get_running_container(service, id) 
     if not container:
       return 'Container not found', 404
+    container['Id']=container['ID']
     docker.stop(container)
+    return 'Removed', 404
     
 def get_service_list():
   return images.keys()
