@@ -1,4 +1,5 @@
 from flask import Flask
+from flask import jsonify
 import json
 from docker import Client
 import random
@@ -10,43 +11,42 @@ docker = Client(version='1.10')
 # TODO: we should collect the types of services that we provide in some kind of registry that the Flask app can collect
 images = {'joai': 'joai_bv:latest', 'mysql': 'mysql:latest', 'nginx': 'nginx:latest'}
 
+@app.route('/', methods=['GET'])
+def get_services():
+    return jsonify(services=get_service_list()), 200
 
-@app.route('/')
-def main_page():
+@app.route('/<service>/', methods=['GET'])
+def main_page(service):
     containers = []
+    if service not in get_service_list():
+      abort(404)
+      
     for container in docker.containers():
-        for image in images.keys():
-            if container['Image'] == images[image]:
+        if container['Image'].split(':')[0] == images[service].split(':')[0]:
                 containers.append(container)
     ids = map(lambda item: item['Id'], containers)
-    return json.dumps(ids), 200
+    return jsonify(instances=ids)
 
 
-@app.route('/factory', methods=['GET'])
-def get_services():
-    return json.dumps(images.keys()), 200
-
-@app.route('/<service>', methods=['POST'])
+@app.route('/<service>/', methods=['POST'])
 def create_new(service):
-    if service in images.keys():
+    if service in get_service_list():
         container = get_container(service)
         try:
             docker.start(container, publish_all_ports=True)
         except NotImplementedError:
             return 'Container type not available', 404
-        #why are we doing this?
         container['Status'] = 'Creating'
-        return json.dumps(container), 201
+        return jsonify(instance=container), 201
     else:
         return 'Container type not available', 404
 
 
-@app.route('/<id>', methods=['GET'])
-def get_container(id):
-    try:
-        container = docker.inspect_container({'Id': id})
-    except:
-        return 'Container not found', 404
+@app.route('/<service>/<id>', methods=['GET'])
+def get_container(service, id):
+    container = get_running_container(service, id)
+    if not container:
+      return 'Container not found', 404
 
     ret = dict()
     #why this is ID and not Id?
@@ -60,17 +60,18 @@ def get_container(id):
         ret['Connection']['HostIp'] = '0.0.0.0'
 
     ret['Password'] = extract_pass(container)
-    return json.dumps(ret)
+    return jsonify(instance=ret)
 
 
-@app.route('/<container_id>', methods=['DELETE'])
-def delete_container(container_id):
-    try:
-        container = docker.inspect_container({'Id': id})
-    except:
-        return 'Container not found', 404
-
+@app.route('/service/<container_id>', methods=['DELETE'])
+def delete_container(service, id):
+    container = docker.inspect_container({'Id': id}) 
+    if not container:
+      return 'Container not found', 404
     docker.stop(container)
+    
+def get_service_list():
+  return images.keys()
 
 
 def get_container(service):
@@ -83,6 +84,15 @@ def get_container(service):
         return docker.create_container(images['nginx'])
     else:
         raise NotImplementedError
+
+def get_running_container(service, id):
+  try:
+    container = docker.inspect_container({'Id': id})
+    if container['Config']['Image'].split(':')[0]!=images[service].split(':')[0]:
+      raise Exception('Wrong container type')
+    return container
+  except:
+    None
 
 def generate_pass(length):
     return ''.join(random.choice(string.ascii_uppercase + string.lowercase + string.digits) for i in range(length))
