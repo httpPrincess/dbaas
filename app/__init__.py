@@ -1,19 +1,28 @@
 from flask import Flask
 from flask import jsonify
-import json
 from docker import Client
 import random
 import string
+import importlib
 
 app = Flask(__name__)
+app.config.from_object('config')
 docker = Client(version='1.10')
+
+try:
+    auth = importlib.import_module(app.config.get('AUTH_MIDDLEWARE'))
+except ImportError:
+    app.logger.error('Error while loading authentication middleware')
+    exit(1)
 
 # TODO: we should collect the types of services that we provide in some kind of registry that the Flask app can collect
 images = {'joai': 'joai_bv:latest', 'mysql': 'mysql:latest', 'nginx': 'nginx:latest'}
 
+
 @app.route('/', methods=['GET'])
 def get_services():
     return jsonify(services=get_service_list()), 200
+
 
 @app.route('/<service>/', methods=['GET'])
 def main_page(service):
@@ -29,6 +38,7 @@ def main_page(service):
 
 
 @app.route('/<service>/', methods=['POST'])
+@auth.requires_auth
 def create_new(service):
     if service in get_service_list():
         container = get_container(service)
@@ -46,7 +56,7 @@ def create_new(service):
 def get_container(service, id):
     container = get_running_container(service, id)
     if not container:
-      return 'Container not found', 404
+        return 'Container not found', 404
 
     ret = dict()
     #why this is ID and not Id?
@@ -64,16 +74,18 @@ def get_container(service, id):
 
 
 @app.route('/<service>/<id>', methods=['DELETE'])
+@auth.requires_auth
 def delete_container(service, id):
     container = get_running_container(service, id) 
     if not container:
-      return 'Container not found', 404
+        return 'Container not found', 404
     container['Id']=container['ID']
     docker.stop(container)
     return 'Removed', 404
-    
+
+
 def get_service_list():
-  return images.keys()
+    return images.keys()
 
 
 def get_container(service):
@@ -87,14 +99,16 @@ def get_container(service):
     else:
         raise NotImplementedError
 
+
 def get_running_container(service, id):
-  try:
-    container = docker.inspect_container({'Id': id})
-    if container['Config']['Image'].split(':')[0]!=images[service].split(':')[0]:
-      raise Exception('Wrong container type')
-    return container
-  except:
-    None
+    try:
+        container = docker.inspect_container({'Id': id})
+        if container['Config']['Image'].split(':')[0]!=images[service].split(':')[0]:
+            raise Exception('Wrong container type')
+        return container
+    except Exception:
+        None
+
 
 def generate_pass(length):
     return ''.join(random.choice(string.ascii_uppercase + string.lowercase + string.digits) for i in range(length))

@@ -1,0 +1,1 @@
+AUTH_MIDDLEWARE = 'app.auth.disabled'
